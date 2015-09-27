@@ -3,16 +3,6 @@
 
 import csv, re
 
-notemap = {
-	"C" : 0,
-	"D" : 2,
-	"E" : 4,
-	"F" : 5,
-	"G" : 7,
-	"A" : 9,
-	"B" : 11
-}
-
 mmap = {
 	"N" : 0.875,
 	"S" : 0.75,
@@ -133,7 +123,7 @@ def main(argv):
 			(r"P[0-9]{1,2}\.?", s_P),
 			(r"N[0-9]{1,2}", s_N),
 			(r"[A-G][+-]?[0-9]{0,2}\.?", s_AG)])
-		print scanner.scan(instr)
+		print "\n".join(["\t.dw $%04x,$%04x" % (freq,int(round(cycles, 0))) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])])
 		
 if __name__ == '__main__':
 	import sys
