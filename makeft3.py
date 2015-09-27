@@ -15,6 +15,7 @@ def bpmToSeconds(bpm, divisor, default = 4):
 
 
 def main(argv):
+	global T, M, O, L
 	with open("octave-note-hl-de-table.csv", 'rU') as freqh:
 		freqreader = csv.reader(freqh)
 		
@@ -36,6 +37,7 @@ def main(argv):
 		def s_X(scanner, token):
 			return None
 		def s_T(scanner, token):
+			global T
 			tval = int(token[1:])
 			if tval >= 32 and tval <= 255:
 				T = tval
@@ -43,11 +45,13 @@ def main(argv):
 				raise IndexError("T can only be in 32 -> 255")
 			return None
 		def s_M(scanner, token):
+			global M
 			if token[1] in mmap:
 				M = token[1]
 			else:
 				raise IndexError("M can only be in [%s]" %  ", ".join(mmap.keys()))
 		def s_L(scanner, token):
+			global L
 			lval = int(token[1:])
 			if lval in pow2:
 				L = lval
@@ -55,6 +59,7 @@ def main(argv):
 				raise IndexError("L can only be in %s" % str(pow2))
 			return None
 		def s_O(scanner, token):
+			global O
 			oval = int(token[1:])
 			if oval >= 0 and oval <= 6:
 				O = oval
@@ -62,6 +67,7 @@ def main(argv):
 				raise IndexError("O can only be in 0 -> 6")
 			return None
 		def s_UpDown(scanner, token):
+			global O
 			if token == "<":
 				O -= 1
 			elif token == ">":
@@ -76,9 +82,11 @@ def main(argv):
 			f, c = fcpairs[index]
 			duration = bpmToSeconds(T, dur) * (1 + 0.5 * dot)
 			if rest:
+				#print "Explicit rest", c*duration, c, duration
 				return [(f, c * duration)]
 			else:
-				return [(f, c * duration * mmap[M]), (rest_f, rest_c * duration * (1 - mmap[M]))]
+				#print "Implicit rest", rest_c*duration*(1 - mmap[M]), rest_c, duration, (1 - mmap[M])
+				return [(f, c * duration * mmap[M])]  + ([(rest_f, rest_c * duration * (1 - mmap[M]))] if (1 - mmap[M]) else [])
 		
 		def s_P(scanner, token):
 			l_index = -1 if token[-1] == '.' else len(token)
@@ -113,6 +121,12 @@ def main(argv):
 			else:
 				return note_gen(note_index, dur, dot)
 		
+		def panic(cycles):
+			cycles = int(round(cycles, 0))
+			if cycles:
+				return cycles
+			else:
+				raise ValueError("panic (0)")
 		
 		scanner = re.Scanner([
 			(r"X", s_X),
@@ -123,7 +137,7 @@ def main(argv):
 			(r"P[0-9]{1,2}\.?", s_P),
 			(r"N[0-9]{1,2}", s_N),
 			(r"[A-G][+-]?[0-9]{0,2}\.?", s_AG)])
-		print "\n".join(["\t.dw $%04x,$%04x" % (freq,int(round(cycles, 0))) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])])
+		print "\n".join(["\t.dw $%04x,$%04x" % (freq,panic(cycles)) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])])
 		
 if __name__ == '__main__':
 	import sys
