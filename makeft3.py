@@ -13,9 +13,23 @@ def bpmToSeconds(bpm, divisor, default = 4):
 	return (60. / bpm) * default / divisor
 
 
+def header(title, artist, album):
+	return """	.org $0000
+	.db $BB,$6D
+	.db $C9
+	.db $31,$80
+	.db 0,2,4
+	.db "%s",0
+	.db "%s",0
+	.db "%s",0""" % (title, artist, album)
+	
+def footer(): 
+	return """	.dw 0, 0
+.end
+END"""
 
 def main(argv):
-	global T, M, O, L
+	global T, M, O, L, DEBUG
 	with open("octave-note-hl-de-table.csv", 'rU') as freqh:
 		freqreader = csv.reader(freqh)
 		
@@ -33,11 +47,18 @@ def main(argv):
 		L = 4 # note divisor
 		o_ofs = -1
 		
+		DEBUG = False
+		def print_token(token):
+			global DEBUG, T,M,O,L
+			if DEBUG: print T,M,O,L, token
+		
 		pow2 = [2 ** i for i in range(7)]
 		def s_X(scanner, token):
+			print_token(token)
 			return None
 		def s_T(scanner, token):
 			global T
+			print_token(token)
 			tval = int(token[1:])
 			if tval >= 32 and tval <= 255:
 				T = tval
@@ -46,12 +67,14 @@ def main(argv):
 			return None
 		def s_M(scanner, token):
 			global M
+			print_token(token)
 			if token[1] in mmap:
 				M = token[1]
 			else:
 				raise IndexError("M can only be in [%s]" %  ", ".join(mmap.keys()))
 		def s_L(scanner, token):
 			global L
+			print_token(token)
 			lval = int(token[1:])
 			if lval in pow2:
 				L = lval
@@ -60,6 +83,7 @@ def main(argv):
 			return None
 		def s_O(scanner, token):
 			global O
+			print_token(token)
 			oval = int(token[1:])
 			if oval >= 0 and oval <= 6:
 				O = oval
@@ -68,6 +92,7 @@ def main(argv):
 			return None
 		def s_UpDown(scanner, token):
 			global O
+			print_token(token)
 			if token == "<":
 				O -= 1
 			elif token == ">":
@@ -77,10 +102,10 @@ def main(argv):
 			return None
 		
 		rest_f, rest_c = fcpairs[ofmap[('R','R')]]
-		def note_gen(index, dur, dot = False):
+		def note_gen(index, dur, dot = 0):
 			rest =  index > maxfreqindex
 			f, c = fcpairs[index]
-			duration = bpmToSeconds(T, dur) * (1 + 0.5 * dot)
+			duration = bpmToSeconds(T, dur) * (1.5 ** dot)
 			if rest:
 				#print "Explicit rest", c*duration, c, duration
 				return [(f, c * duration)]
@@ -88,8 +113,9 @@ def main(argv):
 				#print "Implicit rest", rest_c*duration*(1 - mmap[M]), rest_c, duration, (1 - mmap[M])
 				return [(f, c * duration * mmap[M])]  + ([(rest_f, rest_c * duration * (1 - mmap[M]))] if (1 - mmap[M]) else [])
 		
-		def s_P(scanner, token):
-			l_index = -1 if token[-1] == '.' else len(token)
+		def s_P(scanner, token, suppress_debug = False):
+			if not suppress_debug: print_token(token)
+			l_index = token.find(".") if token[-1] == '.' else len(token)
 			pval = int(token[1:l_index])
 			if pval in pow2:
 				return note_gen(ofmap[('R','R')], pval, l_index < 0)
@@ -97,18 +123,20 @@ def main(argv):
 				raise IndexError("P can only be in %s" % str(pow2))
 			
 		def s_N(scanner, token):
+			print_token(token)
 			nval = int(token[1:])
 			if nval == 0:
-				return s_P(scanner, "P%d" % L) # lol hax
+				return s_P(scanner, "P%d" % L, True) # lol hax
 			elif nval >= 1 and nval <= 84:
 				return note_gen(nval - 13, L)
 			else:
 				raise IndexError("N can only be in 0 -> 84")
 			
 		def s_AG(scanner, token):
+			print_token(token)
 			note = token[0]
 			modifier = len(token) > 1 and token[1] in "+-"
-			dot = token[-1] == '.'
+			dot = token.count(".")
 			dur = int(token[1 + modifier : -1 if dot else len(token)]) if len(token) > (1 + modifier + dot) else L # LOL EXTRA HAX
 			modifier = (1 if modifier == "+" else -1) if modifier else 0
 			note_index = ofmap[(O,note)] - 12 + modifier
@@ -134,10 +162,10 @@ def main(argv):
 			(r"M[NSL]", s_M),
 			(r"L[0-9]{1,2}", s_L),
 			(r"<|>", s_UpDown),
-			(r"P[0-9]{1,2}\.?", s_P),
+			(r"P[0-9]{1,2}\.*", s_P),
 			(r"N[0-9]{1,2}", s_N),
-			(r"[A-G][+-]?[0-9]{0,2}\.?", s_AG)])
-		print "\n".join(["\t.dw $%04x,$%04x" % (freq,panic(cycles)) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])])
+			(r"[A-G][+-]?[0-9]{0,2}\.*", s_AG)])
+		print "\n".join([header(*sys.argv[2:])] + ["\t.dw $%04x,$%04x" % (freq,panic(cycles)) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])] + [footer()])
 		
 if __name__ == '__main__':
 	import sys
