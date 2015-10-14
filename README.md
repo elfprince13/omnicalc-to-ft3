@@ -9,4 +9,7 @@ The following three arguments are the song title, album, and artist, as they wil
 
 Example usage:
 
-`./makeft3.py "T180P2P8L8GGGL2E-P32.P8L8FFFL2D" "5th Symphony" "Omnicalc Manual" "Beethoven" > beethvn5.bin && wabbit beethvn5.bin beethvn5.8xp`
+    ./makeft3.py "T180P2P8L8GGGL2E-P32.P8L8FFFL2D" "5th Symphony" "Omnicalc Manual" "Beethoven" > beethvn5.bin
+    wabbit beethvn5.bin beethvn5.8xp`
+
+This program is copyright 2015, Thomas Dickerson. All rights reserved.
