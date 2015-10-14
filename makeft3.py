@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-import csv, re
+import csv, re, sys
 
 mmap = {
 	"N" : 0.875,
@@ -12,21 +12,32 @@ mmap = {
 def bpmToSeconds(bpm, divisor, default = 4):
 	return (60. / bpm) * default / divisor
 
+def cantbin(verb,arg):
+	import sys
+	print ""
+	raise TypeError("Don't know how to %s this %s: %s" % (verb,repr(type(arg)),repr(arg)))
+
+def db(*args):
+	return "".join([chr(arg) if type(arg) == int else (arg if type(arg) == str else cantbin("db",arg)) for arg in args])
+			
+	
+		
+def dw(*args):
+	# z80 is Little-Endian
+	return "".join([(chr(arg % 256) + chr(arg / 256)) if type(arg) == int and not arg / 65536 else cantbin("dw",arg) for arg in args])
+
 
 def header(title, artist, album):
-	return """	.org $0000
-	.db $BB,$6D
-	.db $C9
-	.db $31,$80
-	.db 0,2,4
-	.db "%s",0
-	.db "%s",0
-	.db "%s",0""" % (title, artist, album)
+	return	db(0xBB,0x6D)+\
+			db(0xC9)+\
+			db(0x31,0x80)+\
+			db(0,2,4)+\
+			db(title,0)+\
+			db(artist,0)+\
+			db(album,0)
 	
 def footer(): 
-	return """	.dw 0, 0
-.end
-END"""
+	return dw(0,0)
 
 def main(argv):
 	global T, M, O, L, DEBUG
@@ -108,9 +119,17 @@ def main(argv):
 			duration = bpmToSeconds(T, dur) * (1.5 ** dot)
 			if rest:
 				#print "Explicit rest", c*duration, c, duration
-				return [(f, c * duration)]
+				cdur = int(round(c*duration,0))
+				if cdur > 65535:
+					reps = [(f,65535)] * (cdur / 65535)
+					if cdur % 65535:
+						reps += [(f,cdur % 65535)]
+					return reps
+				else:
+					return [(f, cdur)]
 			else:
 				#print "Implicit rest", rest_c*duration*(1 - mmap[M]), rest_c, duration, (1 - mmap[M])
+				# we probably should have some warning here if it's too long
 				return [(f, c * duration * mmap[M])]  + ([(rest_f, rest_c * duration * (1 - mmap[M]))] if (1 - mmap[M]) else [])
 		
 		def s_P(scanner, token, suppress_debug = False):
@@ -165,8 +184,9 @@ def main(argv):
 			(r"P[0-9]{1,2}\.*", s_P),
 			(r"N[0-9]{1,2}", s_N),
 			(r"[A-G][+-]?[0-9]{0,2}\.*", s_AG)])
-		print "\n".join([header(*sys.argv[2:])] + ["\t.dw $%04x,$%04x" % (freq,panic(cycles)) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])] + [footer()])
+		output = "".join([header(*argv[2:])] + [dw(freq,panic(cycles)) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])] + [footer()])
+		sys.stdout.write(output)
+		sys.stdout.flush()
 		
 if __name__ == '__main__':
-	import sys
 	main(sys.argv)
