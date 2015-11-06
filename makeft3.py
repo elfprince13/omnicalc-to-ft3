@@ -19,13 +19,10 @@ def cantbin(verb,arg):
 
 def db(*args):
 	return "".join([chr(arg) if type(arg) == int else (arg if type(arg) == str else cantbin("db",arg)) for arg in args])
-			
-	
-		
+
 def dw(*args):
 	# z80 is Little-Endian
 	return "".join([(chr(arg % 256) + chr(arg / 256)) if type(arg) == int and not arg / 65536 else cantbin("dw",arg) for arg in args])
-
 
 def header(title, artist, album):
 	return	db(0xBB,0x6D)+\
