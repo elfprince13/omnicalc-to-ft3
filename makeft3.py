@@ -41,15 +41,15 @@ def footer():
 
 def main(argv):
 	global T, M, O, L, DEBUG
-	with open("octave-note-hl-de-table.csv", 'rU') as freqh:
-		freqreader = csv.reader(freqh)
+	with open("octave-note-hl-de-table.csv", 'rU') as wvlenh:
+		wvlenreader = csv.reader(wvlenh)
 		
 		ofmap = {}
 		fcpairs = []
-		for row, (octave, note, freq, cycles) in enumerate(freqreader):
+		for row, (octave, note, wvlen, cycles) in enumerate(wvlenreader):
 			ofmap[(int(octave) if octave != 'R' else octave, note)] = row
-			fcpairs.append((int(freq),int(cycles)))
-		maxfreqindex = len(fcpairs) - 2
+			fcpairs.append((int(wvlen),int(cycles)))
+		maxwvlenindex = len(fcpairs) - 2
 		
 		instr = argv[1]
 		T = 120 # bpm (in quarter notes)
@@ -114,7 +114,7 @@ def main(argv):
 		
 		rest_f, rest_c = fcpairs[ofmap[('R','R')]]
 		def note_gen(index, dur, dot = 0):
-			rest =  index > maxfreqindex
+			rest =  index > maxwvlenindex
 			f, c = fcpairs[index]
 			duration = bpmToSeconds(T, dur) * (1.5 ** dot)
 			if rest:
@@ -161,7 +161,7 @@ def main(argv):
 			note_index = ofmap[(O,note)] - 12 + modifier
 			if note_index < 0:
 				raise IndexError("your octave was too low or you took a bad flat: %s / %d" % (token, O))
-			elif note_index > maxfreqindex:
+			elif note_index > maxwvlenindex:
 				raise IndexError("your octave was too high or you took a bad sharp: %s / %d" % (token, O))
 			elif dur not in pow2:
 				raise IndexError("A-G can only be in %s" % str(pow2))
@@ -184,7 +184,7 @@ def main(argv):
 			(r"P[0-9]{1,2}\.*", s_P),
 			(r"N[0-9]{1,2}", s_N),
 			(r"[A-G][+-]?[0-9]{0,2}\.*", s_AG)])
-		output = "".join([header(*argv[2:])] + [dw(freq,panic(cycles)) for freq, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])] + [footer()])
+		output = "".join([header(*argv[2:])] + [dw(wvlen,panic(cycles)) for wvlen, cycles in reduce(lambda a,b:a+b,scanner.scan(instr)[0],[])] + [footer()])
 		sys.stdout.write(output)
 		sys.stdout.flush()
 		
